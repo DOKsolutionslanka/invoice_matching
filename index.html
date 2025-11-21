@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Invoice Matcher</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+       
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+       
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+       
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+       
+        .instructions {
+            background: #f0f8ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 5px;
+        }
+       
+        .instructions h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+       
+        .instructions ul {
+            margin-left: 20px;
+            color: #555;
+        }
+       
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+       
+        .upload-box {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+       
+        .upload-box:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+       
+        .upload-box h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+       
+        input[type="file"] {
+            display: none;
+        }
+       
+        .file-label {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: bold;
+        }
+       
+        .file-label:hover {
+            background: #764ba2;
+        }
+       
+        .file-name {
+            margin-top: 15px;
+            color: #666;
+            font-size: 0.9em;
+            min-height: 20px;
+        }
+       
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: none;
+        }
+       
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+       
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+       
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+       
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+       
+        button {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+       
+        .match-btn {
+            background: #28a745;
+            color: white;
+        }
+       
+        .match-btn:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40,167,69,0.3);
+        }
+       
+        .download-btn {
+            background: #007bff;
+            color: white;
+            display: none;
+        }
+       
+        .download-btn:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.3);
+        }
+       
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+       
+        .preview {
+            margin-top: 30px;
+            overflow-x: auto;
+        }
+       
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+       
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+            font-size: 0.9em;
+        }
+       
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+       
+        tr:nth-child(even) {
+            background: #f8f9ff;
+        }
+       
+        tr:hover {
+            background: #e8eaff;
+        }
+       
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+       
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+       
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+       
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+       
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+       
+        .stat-box h4 {
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+       
+        .stat-box .number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Excel Invoice Matcher</h1>
+       
+        <div class="instructions">
+            <h3>Matching Rules:</h3>
+            <ul>
+                <li><strong>Debtor Data Column D</strong> matches with <strong>DOK Sale Report Column A</strong></li>
+                <li><strong>Debtor Data Column F</strong> matches with <strong>DOK Sale Report Column E</strong></li>
+                <li>Both conditions must match to retrieve data</li>
+                <li>Retrieved columns: W/O TAX Value (I), NBT (J), SSCL (K), VAT (L), SVAT (M), With Tax Value (H)</li>
+            </ul>
+        </div>
+       
+        <div class="upload-section">
+            <div class="upload-box">
+                <h3>Debtor Data</h3>
+                <p style="font-size: 0.85em; color: #666; margin-bottom: 10px;">Match columns C & E</p>
+                <label for="debtorFile" class="file-label">Choose File</label>
+                <input type="file" id="debtorFile" accept=".xlsx,.xls">
+                <div class="file-name" id="debtorFileName">No file chosen</div>
+            </div>
+           
+            <div class="upload-box">
+                <h3>DOK Sale Report</h3>
+                <p style="font-size: 0.85em; color: #666; margin-bottom: 10px;">Match columns A & E</p>
+                <label for="dokFile" class="file-label">Choose File</label>
+                <input type="file" id="dokFile" accept=".xlsx,.xls">
+                <div class="file-name" id="dokFileName">No file chosen</div>
+            </div>
+        </div>
+       
+        <div class="status" id="status"></div>
+       
+        <div class="button-group">
+            <button class="match-btn" id="matchBtn" disabled>Match Data</button>
+            <button class="download-btn" id="downloadBtn">Download Result</button>
+        </div>
+       
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+       
+        <div id="statsContainer"></div>
+       
+        <div class="preview" id="preview"></div>
+    </div>
+
+    <script>
+        let debtorData = null;
+        let dokData = null;
+        let matchedData = null;
+
+        const debtorFileInput = document.getElementById('debtorFile');
+        const dokFileInput = document.getElementById('dokFile');
+        const matchBtn = document.getElementById('matchBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statusDiv = document.getElementById('status');
+        const loadingDiv = document.getElementById('loading');
+        const previewDiv = document.getElementById('preview');
+        const statsContainer = document.getElementById('statsContainer');
+
+        debtorFileInput.addEventListener('change', (e) => handleFileUpload(e, 'debtor'));
+        dokFileInput.addEventListener('change', (e) => handleFileUpload(e, 'dok'));
+        matchBtn.addEventListener('click', matchData);
+        downloadBtn.addEventListener('click', downloadResult);
+
+        function handleFileUpload(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileNameDiv = document.getElementById(type === 'debtor' ? 'debtorFileName' : 'dokFileName');
+            fileNameDiv.textContent = file.name;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+
+                    if (type === 'debtor') {
+                        debtorData = jsonData;
+                        showStatus('Debtor data loaded successfully!', 'success');
+                    } else {
+                        dokData = jsonData;
+                        showStatus('DOK Sale Report loaded successfully!', 'success');
+                    }
+
+                    if (debtorData && dokData) {
+                        matchBtn.disabled = false;
+                    }
+                } catch (error) {
+                    showStatus(`Error reading ${type} file: ${error.message}`, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function matchData() {
+            if (!debtorData || !dokData) {
+                showStatus('Please upload both files first!', 'error');
+                return;
+            }
+
+            loadingDiv.style.display = 'block';
+            previewDiv.innerHTML = '';
+            statsContainer.innerHTML = '';
+            downloadBtn.style.display = 'none';
+
+            setTimeout(() => {
+                try {
+                    // Get Debtor Data headers and create result headers
+                    const debtorHeaders = debtorData[0] || [];
+                    const resultHeaders = [...debtorHeaders, 'W/O TAX Value', 'NBT', 'SSCL', 'VAT', 'SVAT', 'With Tax Value'];
+                    matchedData = [resultHeaders];
+
+                    let matchCount = 0;
+                    let noMatchCount = 0;
+
+                    // Process each debtor row (skip header)
+                    for (let i = 1; i < debtorData.length; i++) {
+                        const debtorRow = debtorData[i];
+                        if (!debtorRow || debtorRow.length === 0) continue;
+
+                        // Get values from Debtor Data columns C (index 2) and E (index 4)
+                        const debtorColC = debtorRow[2]; // Column C
+                        const debtorColE = debtorRow[4]; // Column E
+
+                        let matched = false;
+                       
+                        // Search for matching row in DOK data
+                        for (let j = 1; j < dokData.length; j++) {
+                            const dokRow = dokData[j];
+                            if (!dokRow || dokRow.length === 0) continue;
+
+                            // Get values from DOK Sale Report columns A (index 0) and E (index 4)
+                            const dokColA = dokRow[0]; // Column A
+                            const dokColE = dokRow[4]; // Column E
+
+                            // Check if both conditions match
+                            if (String(debtorColC).trim() === String(dokColA).trim() &&
+                                String(debtorColE).trim() === String(dokColE).trim()) {
+                               
+                                // Extract data from DOK Sale Report
+                                const woTaxValue = dokRow[8] || '';  // Column I (index 8)
+                                const nbt = dokRow[9] || '';         // Column J (index 9)
+                                const sscl = dokRow[10] || '';       // Column K (index 10)
+                                const vat = dokRow[11] || '';        // Column L (index 11)
+                                const svat = dokRow[12] || '';       // Column M (index 12)
+                                const withTaxValue = dokRow[7] || ''; // Column H (index 7)
+
+                                const resultRow = [
+                                    ...debtorRow,
+                                    woTaxValue,
+                                    nbt,
+                                    sscl,
+                                    vat,
+                                    svat,
+                                    withTaxValue
+                                ];
+                                matchedData.push(resultRow);
+                                matched = true;
+                                matchCount++;
+                                break;
+                            }
+                        }
+
+                        // If no match found, add empty values
+                        if (!matched) {
+                            const resultRow = [...debtorRow, '', '', '', '', '', ''];
+                            matchedData.push(resultRow);
+                            noMatchCount++;
+                        }
+                    }
+
+                    displayStats(matchCount, noMatchCount);
+                    displayPreview();
+                    showStatus(`Matching completed! Found ${matchCount} matches out of ${matchCount + noMatchCount} records.`, 'success');
+                    downloadBtn.style.display = 'inline-block';
+                } catch (error) {
+                    showStatus(`Error matching data: ${error.message}`, 'error');
+                    console.error(error);
+                } finally {
+                    loadingDiv.style.display = 'none';
+                }
+            }, 100);
+        }
+
+        function displayStats(matchCount, noMatchCount) {
+            const total = matchCount + noMatchCount;
+            const matchPercent = total > 0 ? ((matchCount / total) * 100).toFixed(1) : 0;
+
+            statsContainer.innerHTML = `
+                <div class="stats">
+                    <div class="stat-box">
+                        <h4>Total Records</h4>
+                        <div class="number">${total}</div>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Matched</h4>
+                        <div class="number">${matchCount}</div>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Not Matched</h4>
+                        <div class="number">${noMatchCount}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayPreview() {
+            if (!matchedData || matchedData.length === 0) return;
+
+            let html = '<h2 style="margin-bottom: 15px;">Preview (First 100 rows)</h2><table><thead><tr>';
+           
+            // Headers
+            matchedData[0].forEach(header => {
+                html += `<th>${header || ''}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            // Data rows (limit to 100 for preview)
+            const previewRows = Math.min(100, matchedData.length - 1);
+            for (let i = 1; i <= previewRows; i++) {
+                html += '<tr>';
+                const row = matchedData[i];
+                for (let j = 0; j < matchedData[0].length; j++) {
+                    const cell = row[j];
+                    html += `<td>${cell !== undefined && cell !== null ? cell : ''}</td>`;
+                }
+                html += '</tr>';
+            }
+
+            html += '</tbody></table>';
+            if (matchedData.length > 101) {
+                html += `<p style="text-align: center; margin-top: 15px; color: #666;">Showing 100 of ${matchedData.length - 1} records. Download to see all data.</p>`;
+            }
+            previewDiv.innerHTML = html;
+        }
+
+        function downloadResult() {
+            if (!matchedData) {
+                showStatus('No data to download!', 'error');
+                return;
+            }
+
+            const ws = XLSX.utils.aoa_to_sheet(matchedData);
+           
+            // Auto-size columns
+            const colWidths = [];
+            for (let i = 0; i < matchedData[0].length; i++) {
+                let maxLen = 0;
+                for (let j = 0; j < Math.min(matchedData.length, 100); j++) {
+                    const cell = matchedData[j][i];
+                    const len = cell ? String(cell).length : 0;
+                    maxLen = Math.max(maxLen, len);
+                }
+                colWidths.push({ wch: Math.min(maxLen + 2, 50) });
+            }
+            ws['!cols'] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Matched Data');
+           
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            XLSX.writeFile(wb, `Matched_Invoice_Data_${timestamp}.xlsx`);
+           
+            showStatus('File downloaded successfully!', 'success');
+        }
+
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+           
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
